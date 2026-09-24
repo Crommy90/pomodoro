@@ -159,21 +159,21 @@ export function usePomodoro(settingsOpen: Ref<boolean>) {
     if (!audioContext) return
 
     const now = audioContext.currentTime
-    ;[660, 880].forEach((frequency, index) => {
-      const oscillator = audioContext!.createOscillator()
-      const gain = audioContext!.createGain()
-      const start = now + index * 0.14
+      ;[660, 880].forEach((frequency, index) => {
+        const oscillator = audioContext!.createOscillator()
+        const gain = audioContext!.createGain()
+        const start = now + index * 0.14
 
-      oscillator.type = 'sine'
-      oscillator.frequency.value = frequency
-      gain.gain.setValueAtTime(0.0001, start)
-      gain.gain.exponentialRampToValueAtTime(0.08, start + 0.02)
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.13)
-      oscillator.connect(gain)
-      gain.connect(audioContext!.destination)
-      oscillator.start(start)
-      oscillator.stop(start + 0.14)
-    })
+        oscillator.type = 'sine'
+        oscillator.frequency.value = frequency
+        gain.gain.setValueAtTime(0.0001, start)
+        gain.gain.exponentialRampToValueAtTime(0.08, start + 0.02)
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.13)
+        oscillator.connect(gain)
+        gain.connect(audioContext!.destination)
+        oscillator.start(start)
+        oscillator.stop(start + 0.14)
+      })
   }
 
   const completeSession = () => {
@@ -182,19 +182,14 @@ export function usePomodoro(settingsOpen: Ref<boolean>) {
     stopInterval()
     playCompletionSound()
 
-    let nextMode: TimerMode
     if (mode.value === 'focus') {
       completedFocusSessions.value += 1
-      nextMode = completedFocusSessions.value === 4 ? 'longBreak' : 'shortBreak'
-      announce(`Focus complete. ${modes[nextMode].label} is ready.`)
+      announce(`Focus complete.`)
     } else {
       if (mode.value === 'longBreak') completedFocusSessions.value = 0
-      nextMode = 'focus'
       announce('Break complete. Your next focus session is ready.')
     }
 
-    mode.value = nextMode
-    remainingSeconds.value = durationFor(nextMode)
     persistState()
   }
 
