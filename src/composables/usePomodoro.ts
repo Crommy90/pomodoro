@@ -7,6 +7,7 @@ export type Settings = {
   shortBreakMinutes: number
   longBreakMinutes: number
   soundEnabled: boolean
+  chimeVolume: number
 }
 
 type StoredState = {
@@ -32,6 +33,7 @@ const DEFAULT_SETTINGS: Settings = {
   shortBreakMinutes: 5,
   longBreakMinutes: 15,
   soundEnabled: true,
+  chimeVolume: 50,
 }
 
 function isTimerMode(value: unknown): value is TimerMode {
@@ -41,6 +43,12 @@ function isTimerMode(value: unknown): value is TimerMode {
 function validMinutes(value: unknown, fallback: number) {
   return typeof value === 'number' && Number.isFinite(value)
     ? Math.min(120, Math.max(1, Math.round(value)))
+    : fallback
+}
+
+function validVolume(value: unknown, fallback: number) {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.min(100, Math.max(0, Math.round(value)))
     : fallback
 }
 
@@ -70,6 +78,7 @@ export function usePomodoro(settingsOpen: Ref<boolean>) {
       typeof storedSettings?.soundEnabled === 'boolean'
         ? storedSettings.soundEnabled
         : DEFAULT_SETTINGS.soundEnabled,
+    chimeVolume: validVolume(storedSettings?.chimeVolume, DEFAULT_SETTINGS.chimeVolume),
   })
 
   const durationFor = (timerMode: TimerMode) => {
@@ -92,7 +101,7 @@ export function usePomodoro(settingsOpen: Ref<boolean>) {
   )
   const completedFocusSessions = ref(
     typeof storedState.completedFocusSessions === 'number'
-      ? Math.min(4, Math.max(0, Math.round(storedState.completedFocusSessions)))
+      ? Math.max(0, Math.round(storedState.completedFocusSessions))
       : 0,
   )
   const isRunning = ref(
@@ -161,8 +170,11 @@ export function usePomodoro(settingsOpen: Ref<boolean>) {
     }
   }
 
-  const playCompletionSound = async (force = false) => {
+  const playCompletionSound = async (force = false, volume = settings.chimeVolume) => {
     if (!(await prepareAudio(force)) || !audioContext) return false
+
+    const peakGain = 0.18 * (validVolume(volume, settings.chimeVolume) / 100)
+    if (peakGain === 0) return true
 
     const now = audioContext.currentTime
     ;[392, 493.88, 587.33].forEach((frequency, index) => {
@@ -174,7 +186,7 @@ export function usePomodoro(settingsOpen: Ref<boolean>) {
       oscillator.type = 'sine'
       oscillator.frequency.value = frequency
       gain.gain.setValueAtTime(0.0001, start)
-      gain.gain.exponentialRampToValueAtTime(0.09, start + 0.04)
+      gain.gain.exponentialRampToValueAtTime(peakGain, start + 0.04)
       gain.gain.exponentialRampToValueAtTime(0.0001, end)
       oscillator.connect(gain)
       gain.connect(audioContext!.destination)
@@ -185,9 +197,14 @@ export function usePomodoro(settingsOpen: Ref<boolean>) {
     return true
   }
 
-  const testSound = async () => {
+  const testSound = async (volume = settings.chimeVolume) => {
+    if (validVolume(volume, settings.chimeVolume) === 0) {
+      soundStatus.value = 'Chime volume is muted.'
+      return
+    }
+
     soundStatus.value = 'Starting test chime...'
-    if (await playCompletionSound(true)) {
+    if (await playCompletionSound(true, volume)) {
       soundStatus.value = 'Playing a 5-second test chime.'
     }
   }
@@ -202,7 +219,6 @@ export function usePomodoro(settingsOpen: Ref<boolean>) {
       completedFocusSessions.value += 1
       announce(`Focus complete.`)
     } else {
-      if (mode.value === 'longBreak') completedFocusSessions.value = 0
       announce('Break complete. Your next focus session is ready.')
     }
 
@@ -246,11 +262,12 @@ export function usePomodoro(settingsOpen: Ref<boolean>) {
     else void startTimer()
   }
 
-  const finishInFiveSeconds = async () => {
+  const finishInSeconds = async (seconds: number) => {
+    const testDuration = Math.min(3600, Math.max(1, Math.round(seconds)))
     stopInterval()
     await prepareAudio()
-    remainingSeconds.value = 5
-    endTime.value = Date.now() + 5_000
+    remainingSeconds.value = testDuration
+    endTime.value = Date.now() + testDuration * 1000
     isRunning.value = true
     timerId = window.setInterval(syncRemainingTime, 250)
     persistState()
@@ -288,6 +305,7 @@ export function usePomodoro(settingsOpen: Ref<boolean>) {
       settings.longBreakMinutes,
     )
     settings.soundEnabled = nextSettings.soundEnabled
+    settings.chimeVolume = validVolume(nextSettings.chimeVolume, settings.chimeVolume)
 
     if (wasIdle) remainingSeconds.value = durationFor(mode.value)
     persistState()
@@ -359,6 +377,6 @@ export function usePomodoro(settingsOpen: Ref<boolean>) {
     saveSettings,
     resetProgress,
     testSound,
-    finishInFiveSeconds,
+    finishInSeconds,
   }
 }

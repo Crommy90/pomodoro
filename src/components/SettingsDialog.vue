@@ -12,7 +12,7 @@ const emit = defineEmits<{
   close: []
   save: [settings: Settings]
   resetProgress: []
-  testSound: []
+  testSound: [volume: number]
 }>()
 
 const dialog = ref<HTMLDialogElement | null>(null)
@@ -102,13 +102,27 @@ function handleCancel(event: Event) {
           <small>Play a soft chime when time is up.</small>
         </span>
         <div class="sound-controls">
-          <button class="text-button" type="button" @click="emit('testSound')">Test</button>
+          <button class="text-button" type="button" @click="emit('testSound', draft.chimeVolume)">
+            Test
+          </button>
           <label class="switch-control">
             <span class="sr-only">Enable completion sound</span>
             <input v-model="draft.soundEnabled" type="checkbox" role="switch" />
           </label>
         </div>
       </div>
+      <label class="volume-setting" for="chime-volume">
+        <span>Volume</span>
+        <input
+          id="chime-volume"
+          v-model.number="draft.chimeVolume"
+          type="range"
+          min="0"
+          max="100"
+          step="5"
+        />
+        <output for="chime-volume">{{ draft.chimeVolume }}%</output>
+      </label>
       <p v-if="props.soundStatus" class="sound-status" aria-live="polite">
         {{ props.soundStatus }}
       </p>
@@ -309,6 +323,29 @@ function handleCancel(event: Event) {
   margin: -5px 0 12px;
   color: var(--muted);
   font-size: 0.72rem;
+}
+
+.volume-setting {
+  display: grid;
+  grid-template-columns: 52px 1fr 38px;
+  align-items: center;
+  gap: 10px;
+  margin: -4px 0 13px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.volume-setting input {
+  width: 100%;
+  accent-color: var(--leaf);
+  cursor: pointer;
+}
+
+.volume-setting output {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .text-button {

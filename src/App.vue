@@ -8,6 +8,7 @@ const settingsOpen = ref(false)
 const {
   mode,
   currentMode,
+  remainingSeconds,
   formattedTime,
   datetime,
   isRunning,
@@ -21,7 +22,7 @@ const {
   saveSettings,
   resetProgress,
   testSound,
-  finishInFiveSeconds,
+  finishInSeconds,
 } = usePomodoro(settingsOpen)
 
 const devMode = import.meta.env.DEV
@@ -42,13 +43,14 @@ const devMode = import.meta.env.DEV
       :current-mode="currentMode"
       :formatted-time="formattedTime"
       :datetime="datetime"
+      :remaining-seconds="remainingSeconds"
       :is-running="isRunning"
       :completed-focus-sessions="completedFocusSessions"
       :dev-mode="devMode"
       @toggle="toggleTimer"
       @reset="resetTimer"
       @switch-mode="switchMode"
-      @finish-in-five-seconds="finishInFiveSeconds"
+      @finish-in-seconds="finishInSeconds"
     />
 
     <p class="keyboard-hint">Space to start or pause · R to reset</p>
