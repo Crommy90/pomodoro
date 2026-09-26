@@ -165,17 +165,16 @@ export function usePomodoro(settingsOpen: Ref<boolean>) {
     if (!(await prepareAudio(force)) || !audioContext) return false
 
     const now = audioContext.currentTime
-    const end = now + 5
-
-    ;[523.25, 659.25, 783.99].forEach((frequency, index) => {
+    ;[392, 493.88, 587.33].forEach((frequency, index) => {
       const oscillator = audioContext!.createOscillator()
       const gain = audioContext!.createGain()
-      const start = now + index * 0.12
+      const start = now + index * 1.75
+      const end = start + 1.5
 
       oscillator.type = 'sine'
       oscillator.frequency.value = frequency
       gain.gain.setValueAtTime(0.0001, start)
-      gain.gain.exponentialRampToValueAtTime(0.07, start + 0.08)
+      gain.gain.exponentialRampToValueAtTime(0.09, start + 0.04)
       gain.gain.exponentialRampToValueAtTime(0.0001, end)
       oscillator.connect(gain)
       gain.connect(audioContext!.destination)
