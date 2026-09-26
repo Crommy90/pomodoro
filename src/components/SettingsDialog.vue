@@ -5,12 +5,14 @@ import type { Settings } from '../composables/usePomodoro'
 const props = defineProps<{
   open: boolean
   settings: Settings
+  soundStatus: string
 }>()
 
 const emit = defineEmits<{
   close: []
   save: [settings: Settings]
   resetProgress: []
+  testSound: []
 }>()
 
 const dialog = ref<HTMLDialogElement | null>(null)
@@ -94,13 +96,22 @@ function handleCancel(event: Event) {
         </label>
       </fieldset>
 
-      <label class="switch-row">
+      <div class="switch-row">
         <span>
           <strong>Completion sound</strong>
           <small>Play a soft chime when time is up.</small>
         </span>
-        <input v-model="draft.soundEnabled" type="checkbox" role="switch" />
-      </label>
+        <div class="sound-controls">
+          <button class="text-button" type="button" @click="emit('testSound')">Test</button>
+          <label class="switch-control">
+            <span class="sr-only">Enable completion sound</span>
+            <input v-model="draft.soundEnabled" type="checkbox" role="switch" />
+          </label>
+        </div>
+      </div>
+      <p v-if="props.soundStatus" class="sound-status" aria-live="polite">
+        {{ props.soundStatus }}
+      </p>
 
       <div class="progress-setting">
         <span>
@@ -248,7 +259,15 @@ function handleCancel(event: Event) {
   line-height: 1.4;
 }
 
-.switch-row input {
+.sound-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.switch-control { line-height: 0; }
+
+.switch-control input {
   position: relative;
   flex: 0 0 auto;
   width: 40px;
@@ -261,7 +280,7 @@ function handleCancel(event: Event) {
   cursor: pointer;
 }
 
-.switch-row input::before {
+.switch-control input::before {
   content: '';
   position: absolute;
   top: 2px;
@@ -274,16 +293,22 @@ function handleCancel(event: Event) {
   transition: transform 140ms ease;
 }
 
-.switch-row input:checked {
+.switch-control input:checked {
   border-color: var(--leaf);
   background: var(--leaf);
 }
 
-.switch-row input:checked::before { transform: translateX(18px); }
+.switch-control input:checked::before { transform: translateX(18px); }
 
-.switch-row input:focus-visible {
+.switch-control input:focus-visible {
   outline: 2px solid #2563eb;
   outline-offset: 3px;
+}
+
+.sound-status {
+  margin: -5px 0 12px;
+  color: var(--muted);
+  font-size: 0.72rem;
 }
 
 .text-button {

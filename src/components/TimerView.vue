@@ -10,12 +10,14 @@ const props = defineProps<{
   datetime: string
   isRunning: boolean
   completedFocusSessions: number
+  devMode: boolean
 }>()
 
 const emit = defineEmits<{
   toggle: []
   reset: []
   switchMode: [mode: TimerMode]
+  finishInFiveSeconds: []
 }>()
 
 async function handleTabKey(event: KeyboardEvent, currentMode: TimerMode) {
@@ -74,6 +76,14 @@ async function handleTabKey(event: KeyboardEvent, currentMode: TimerMode) {
           </button>
           <button class="secondary-action" type="button" @click="emit('reset')">Reset</button>
         </div>
+        <button
+          v-if="props.devMode"
+          class="dev-test-button"
+          type="button"
+          @click="emit('finishInFiveSeconds')"
+        >
+          Finish in 5 seconds
+        </button>
       </div>
     </div>
 
@@ -84,13 +94,27 @@ async function handleTabKey(event: KeyboardEvent, currentMode: TimerMode) {
           class="session-dots"
           :aria-label="`${props.completedFocusSessions} of 4 focus sessions complete`"
         >
-          <span
+          <svg
             v-for="index in 4"
             :key="index"
-            class="session-dot"
+            class="session-tomato"
             :class="{ 'is-complete': index <= props.completedFocusSessions }"
+            viewBox="0 0 28 28"
+            fill="none"
             aria-hidden="true"
-          />
+          >
+            <path
+              class="tomato-body"
+              d="M14 7.5c-5.3 0-9 3.25-9 7.85C5 20.35 8.82 24 14 24s9-3.65 9-8.65c0-4.6-3.7-7.85-9-7.85Z"
+            />
+            <path
+              class="tomato-leaves"
+              d="m14 8-3.7-2.1 1.3 3.25L8.2 10.3l4.3.3L14 13l1.5-2.4 4.3-.3-3.4-1.15 1.3-3.25L14 8Z"
+            />
+            <circle class="tomato-face" cx="11" cy="15.5" r="1" />
+            <circle class="tomato-face" cx="17" cy="15.5" r="1" />
+            <path class="tomato-smile" d="M11.5 18.2c.65.75 1.48 1.1 2.5 1.1s1.85-.35 2.5-1.1" />
+          </svg>
         </div>
       </div>
       <p class="session-count"><strong>{{ props.completedFocusSessions }}</strong> / 4</p>
@@ -182,6 +206,19 @@ async function handleTabKey(event: KeyboardEvent, currentMode: TimerMode) {
   gap: 8px;
 }
 
+.dev-test-button {
+  margin-top: 14px;
+  padding: 5px 4px;
+  border: 0;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dev-test-button:hover { color: var(--ink); }
+
 .action-icon {
   display: inline-block;
   width: 16px;
@@ -215,16 +252,39 @@ async function handleTabKey(event: KeyboardEvent, currentMode: TimerMode) {
   font-weight: 600;
 }
 
-.session-dots { display: flex; gap: 7px; }
-
-.session-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #d8ddda;
+.session-dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
-.session-dot.is-complete { background: var(--leaf); }
+.session-tomato {
+  width: 22px;
+  height: 22px;
+  --tomato-body: #cfd5d1;
+  --tomato-leaf: #cfd5d1;
+}
+
+.session-tomato.is-complete {
+  --tomato-body: var(--tomato);
+  --tomato-leaf: var(--leaf);
+}
+
+.tomato-body {
+  fill: var(--tomato-body);
+  stroke: var(--tomato-body);
+  stroke-width: 1.2;
+}
+
+.tomato-leaves { fill: var(--tomato-leaf); }
+
+.tomato-face { fill: var(--surface); }
+
+.tomato-smile {
+  stroke: var(--surface);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
 
 .session-count {
   margin: 0;

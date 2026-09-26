@@ -14,12 +14,17 @@ const {
   completedFocusSessions,
   settings,
   status,
+  soundStatus,
   toggleTimer,
   resetTimer,
   switchMode,
   saveSettings,
   resetProgress,
+  testSound,
+  finishInFiveSeconds,
 } = usePomodoro(settingsOpen)
+
+const devMode = import.meta.env.DEV
 </script>
 
 <template>
@@ -39,9 +44,11 @@ const {
       :datetime="datetime"
       :is-running="isRunning"
       :completed-focus-sessions="completedFocusSessions"
+      :dev-mode="devMode"
       @toggle="toggleTimer"
       @reset="resetTimer"
       @switch-mode="switchMode"
+      @finish-in-five-seconds="finishInFiveSeconds"
     />
 
     <p class="keyboard-hint">Space to start or pause · R to reset</p>
@@ -51,9 +58,11 @@ const {
   <SettingsDialog
     :open="settingsOpen"
     :settings="settings"
+    :sound-status="soundStatus"
     @close="settingsOpen = false"
     @save="saveSettings"
     @reset-progress="resetProgress"
+    @test-sound="testSound"
   />
 </template>
 

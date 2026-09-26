@@ -100,6 +100,7 @@ export function usePomodoro(settingsOpen: Ref<boolean>) {
   )
   const endTime = ref<number | null>(isRunning.value ? (storedState.endTime ?? null) : null)
   const status = ref('')
+  const soundStatus = ref('')
   const currentMode = computed(() => modes[mode.value])
   const formattedTime = computed(() => {
     const minutes = Math.floor(remainingSeconds.value / 60)
@@ -147,40 +148,56 @@ export function usePomodoro(settingsOpen: Ref<boolean>) {
     }
   }
 
-  const prepareAudio = () => {
-    if (!settings.soundEnabled) return
-    audioContext ??= new AudioContext()
-    if (audioContext.state === 'suspended') void audioContext.resume()
+  const prepareAudio = async (force = false) => {
+    if (!force && !settings.soundEnabled) return false
+
+    try {
+      audioContext ??= new AudioContext()
+      if (audioContext.state === 'suspended') await audioContext.resume()
+      return audioContext.state === 'running'
+    } catch {
+      soundStatus.value = 'Sound is unavailable in this browser.'
+      return false
+    }
   }
 
-  const playCompletionSound = () => {
-    if (!settings.soundEnabled) return
-    prepareAudio()
-    if (!audioContext) return
+  const playCompletionSound = async (force = false) => {
+    if (!(await prepareAudio(force)) || !audioContext) return false
 
     const now = audioContext.currentTime
-      ;[660, 880].forEach((frequency, index) => {
-        const oscillator = audioContext!.createOscillator()
-        const gain = audioContext!.createGain()
-        const start = now + index * 0.14
+    const end = now + 5
 
-        oscillator.type = 'sine'
-        oscillator.frequency.value = frequency
-        gain.gain.setValueAtTime(0.0001, start)
-        gain.gain.exponentialRampToValueAtTime(0.08, start + 0.02)
-        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.13)
-        oscillator.connect(gain)
-        gain.connect(audioContext!.destination)
-        oscillator.start(start)
-        oscillator.stop(start + 0.14)
-      })
+    ;[523.25, 659.25, 783.99].forEach((frequency, index) => {
+      const oscillator = audioContext!.createOscillator()
+      const gain = audioContext!.createGain()
+      const start = now + index * 0.12
+
+      oscillator.type = 'sine'
+      oscillator.frequency.value = frequency
+      gain.gain.setValueAtTime(0.0001, start)
+      gain.gain.exponentialRampToValueAtTime(0.07, start + 0.08)
+      gain.gain.exponentialRampToValueAtTime(0.0001, end)
+      oscillator.connect(gain)
+      gain.connect(audioContext!.destination)
+      oscillator.start(start)
+      oscillator.stop(end)
+    })
+
+    return true
+  }
+
+  const testSound = async () => {
+    soundStatus.value = 'Starting test chime...'
+    if (await playCompletionSound(true)) {
+      soundStatus.value = 'Playing a 5-second test chime.'
+    }
   }
 
   const completeSession = () => {
     isRunning.value = false
     endTime.value = null
     stopInterval()
-    playCompletionSound()
+    void playCompletionSound()
 
     if (mode.value === 'focus') {
       completedFocusSessions.value += 1
@@ -205,11 +222,11 @@ export function usePomodoro(settingsOpen: Ref<boolean>) {
     if (remainingSeconds.value === 0) completeSession()
   }
 
-  const startTimer = () => {
+  const startTimer = async () => {
     if (isRunning.value) return
     if (remainingSeconds.value === 0) remainingSeconds.value = durationFor(mode.value)
 
-    prepareAudio()
+    await prepareAudio()
     isRunning.value = true
     endTime.value = Date.now() + remainingSeconds.value * 1000
     timerId = window.setInterval(syncRemainingTime, 250)
@@ -227,7 +244,18 @@ export function usePomodoro(settingsOpen: Ref<boolean>) {
 
   const toggleTimer = () => {
     if (isRunning.value) pauseTimer()
-    else startTimer()
+    else void startTimer()
+  }
+
+  const finishInFiveSeconds = async () => {
+    stopInterval()
+    await prepareAudio()
+    remainingSeconds.value = 5
+    endTime.value = Date.now() + 5_000
+    isRunning.value = true
+    timerId = window.setInterval(syncRemainingTime, 250)
+    persistState()
+    announce('Test countdown started.')
   }
 
   const resetTimer = () => {
@@ -325,10 +353,13 @@ export function usePomodoro(settingsOpen: Ref<boolean>) {
     completedFocusSessions,
     settings,
     status,
+    soundStatus,
     toggleTimer,
     resetTimer,
     switchMode,
     saveSettings,
     resetProgress,
+    testSound,
+    finishInFiveSeconds,
   }
 }
