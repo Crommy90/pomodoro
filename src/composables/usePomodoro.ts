@@ -1,4 +1,5 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch, type Ref } from 'vue'
+import chimeUrl from '../assets/chime.mp3'
 
 export type TimerMode = 'focus' | 'shortBreak' | 'longBreak'
 
@@ -124,6 +125,8 @@ export function usePomodoro(settingsOpen: Ref<boolean>) {
   let timerId: number | null = null
   let announcementId: number | null = null
   let audioContext: AudioContext | null = null
+  let chimeBuffer: AudioBuffer | null = null
+  let chimeBufferPromise: Promise<AudioBuffer> | null = null
 
   const persistState = () => {
     const state: StoredState = {
@@ -157,42 +160,65 @@ export function usePomodoro(settingsOpen: Ref<boolean>) {
     }
   }
 
+  const loadChime = () => {
+    if (chimeBuffer) return Promise.resolve(chimeBuffer)
+    if (chimeBufferPromise) return chimeBufferPromise
+    if (!audioContext) return Promise.reject(new Error('Audio context is unavailable.'))
+
+    const context = audioContext
+    chimeBufferPromise = fetch(chimeUrl)
+      .then((response) => {
+        if (!response.ok) throw new Error('Chime file could not be loaded.')
+        return response.arrayBuffer()
+      })
+      .then((data) => context.decodeAudioData(data))
+      .then((buffer) => {
+        chimeBuffer = buffer
+        return buffer
+      })
+      .catch((error: unknown) => {
+        chimeBufferPromise = null
+        throw error
+      })
+
+    return chimeBufferPromise
+  }
+
   const prepareAudio = async (force = false) => {
     if (!force && !settings.soundEnabled) return false
 
     try {
       audioContext ??= new AudioContext()
       if (audioContext.state === 'suspended') await audioContext.resume()
-      return audioContext.state === 'running'
+      if (audioContext.state !== 'running') return false
+      await loadChime()
+      return true
     } catch {
-      soundStatus.value = 'Sound is unavailable in this browser.'
+      soundStatus.value = 'The chime could not be loaded.'
       return false
     }
   }
 
   const playCompletionSound = async (force = false, volume = settings.chimeVolume) => {
-    if (!(await prepareAudio(force)) || !audioContext) return false
-
-    const peakGain = 0.18 * (validVolume(volume, settings.chimeVolume) / 100)
+    const peakGain = (validVolume(volume, settings.chimeVolume) / 100)
     if (peakGain === 0) return true
+    if (!(await prepareAudio(force)) || !audioContext || !chimeBuffer) return false
 
-    const now = audioContext.currentTime
-    ;[392, 493.88, 587.33].forEach((frequency, index) => {
-      const oscillator = audioContext!.createOscillator()
-      const gain = audioContext!.createGain()
-      const start = now + index * 1.75
-      const end = start + 1.5
-
-      oscillator.type = 'sine'
-      oscillator.frequency.value = frequency
-      gain.gain.setValueAtTime(0.0001, start)
-      gain.gain.exponentialRampToValueAtTime(peakGain, start + 0.04)
-      gain.gain.exponentialRampToValueAtTime(0.0001, end)
-      oscillator.connect(gain)
-      gain.connect(audioContext!.destination)
-      oscillator.start(start)
-      oscillator.stop(end)
-    })
+    const source = audioContext.createBufferSource()
+    const gain = audioContext.createGain()
+    source.buffer = chimeBuffer
+    gain.gain.value = peakGain
+    source.connect(gain)
+    gain.connect(audioContext.destination)
+    source.addEventListener(
+      'ended',
+      () => {
+        source.disconnect()
+        gain.disconnect()
+      },
+      { once: true },
+    )
+    source.start()
 
     return true
   }
@@ -205,7 +231,7 @@ export function usePomodoro(settingsOpen: Ref<boolean>) {
 
     soundStatus.value = 'Starting test chime...'
     if (await playCompletionSound(true, volume)) {
-      soundStatus.value = 'Playing a 5-second test chime.'
+      soundStatus.value = 'Playing test chime.'
     }
   }
 
